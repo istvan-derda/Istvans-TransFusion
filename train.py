@@ -117,68 +117,46 @@ def visualize(ori_data, fake_data, dataset_name, seq_len, save_path, epoch, writ
 
 
 def main(args):
-    
-    seq_len = args.seq_len
-    epochs = args.training_epoch
-    timesteps = args.timesteps
-    batch_size = args.batch_size
-    latent_dim = args.hidden_dim
-    num_layers = args.num_of_layers
-    n_heads = args.n_head    
-    dataset_name = args.dataset_name
-    beta_schedule = args.beta_schedule
-    objective = args.objective
-    
-    train_data, test_data = LoadData(dataset_name, seq_len)
+    train_data, test_data = LoadData(
+        dataset_name=args.dataset_name, 
+        seq_len=args.seq_len)
     
     train_data, test_data = np.asarray(train_data), np.asarray(test_data)
+
+    train(
+        train_data, 
+        beta_schedule=args.beta_schedule,
+        objective=args.objective, 
+        epochs=args.training_epoch, 
+        timesteps=args.timesteps, 
+        batch_size=args.batch_size, 
+        latent_dim=args.hidden_dim, 
+        num_layers=args.num_of_layers, 
+        n_heads=args.n_head,
+        seq_len=args.seq_len)
+
+
+def train(train_data,
+          beta_schedule='cosine',
+          objective='pred=x0', 
+          epochs=5000, 
+          timesteps=1000, 
+          batch_size=256, 
+          latent_dim=256, 
+          num_layers=6, 
+          n_heads=8,
+          seq_len=100):
     
     features = train_data.shape[2]
-    
-    train_data, test_data = train_data.transpose(0,2,1), test_data.transpose(0,2,1)
-    
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size)
-    
-    test_loader = torch.utils.data.DataLoader(test_data, len(test_data))
-    
-    real_data = next(iter(test_loader))
-    
+    train_data = train_data.transpose(0,2,1)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size)  
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
-    mode = 'diffusion'
-    
-    architecture = 'custom-transformers'
-    
-    loss_mode = 'l1'
-    
-    file_name = f'{architecture}-{dataset_name}-{loss_mode}-{beta_schedule}-{seq_len}-{objective}'
-    
-    folder_name = f'saved_files/{time.time():.4f}-{file_name}'
-    
-    pathlib.Path(folder_name).mkdir(parents=True, exist_ok=True) 
-    
-    gan_fig_dir_path = f'{folder_name}/output/gan'
-    
-    pathlib.Path(gan_fig_dir_path).mkdir(parents=True, exist_ok=True)
-    
-    file_name_gan_fig = f'{file_name}-gan'
-    
-    with open(f'{folder_name}/params.txt', 'w') as f:
-        
-        json.dump(args.__dict__, f, indent=2)
-        
-        f.close() 
-    
-    writer = SummaryWriter(log_dir = folder_name, comment = f'{file_name}', flush_secs = 45)
-    
-    
     model = TransEncoder(
-    
         features = features,
         latent_dim = latent_dim,
         num_heads = n_heads,
         num_layers = num_layers
-    
     )
 
     diffusion = GaussianDiffusion1D(
@@ -191,61 +169,31 @@ def main(args):
     )
     
     diffusion = diffusion.to(device)
-
     lr = 1e-4
-    
     betas = (0.9, 0.99)
-
     optim = torch.optim.Adam(diffusion.parameters(), lr = lr, betas = betas)
     
-    
     for running_epoch in tqdm(range(epochs)):
-        
         for i, data in enumerate(train_loader):
-            
             data = data.to(device)
-            
             batch_size = data.shape[0]
-            
             optim.zero_grad()
-            
             loss = diffusion(data)
-            
             loss.backward()
-            
             optim.step()
-            
-            if i%len(train_loader)==0:
-                
-                writer.add_scalar('Loss', loss.item(), running_epoch)
-                
+
             if i%len(train_loader)==0 and running_epoch%100==0:
-                
                 print(f'Epoch: {running_epoch+1}, Loss: {loss.item()}')
-                
-            if i%len(train_loader)==0 and running_epoch%500==0:
-                
-                with torch.no_grad():
-                    
-                    samples = diffusion.sample(len(test_data))
+    
+    return diffusion
 
-                    samples = samples.cpu().numpy()
 
-                    samples = samples.transpose(0, 2, 1)
-                    
-                    np.save(f'{folder_name}/synth-{dataset_name}-{seq_len}-{running_epoch}.npy', samples)
-                    
-                visualize(real_data.cpu().numpy().transpose(0,2,1), samples, dataset_name, seq_len, gan_fig_dir_path, running_epoch, writer)
-                
-                
-    torch.save({
+def generate(train_data, len):
+    model = train(train_data)
 
-        'epoch': running_epoch+1,
-        'diffusion_state_dict': diffusion.state_dict(),
-        'diffusion_optim_state_dict': optim.state_dict()
+    samples = model.sample(len).cpu().numpy().transpose(0, 2, 1)
 
-        }, os.path.join(f'{folder_name}', f'{file_name}-final.pth'))
-
+    return samples
 
 
 if __name__ == "__main__":
