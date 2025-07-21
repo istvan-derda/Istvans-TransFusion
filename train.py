@@ -1,31 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-import time
 import os
-import json
-import pathlib
-from tqdm import tqdm
-
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-
-import seaborn as sb
-
-from torch.utils.tensorboard import SummaryWriter
-
 import argparse
+from tqdm import tqdm
+from pyprojroot import here
+import numpy as np
+import torch
 
 from ddpm import *
 from data_make import *
-
-import warnings
-warnings.filterwarnings('ignore')
 
 
 def main(args):
@@ -35,7 +16,7 @@ def main(args):
     
     train_data, test_data = np.asarray(train_data), np.asarray(test_data)
 
-    train(
+    model = train(
         train_data, 
         beta_schedule=args.beta_schedule,
         objective=args.objective, 
@@ -46,6 +27,10 @@ def main(args):
         num_layers=args.num_of_layers, 
         n_heads=args.n_head,
         seq_len=args.seq_len)
+    
+    samples = generate(model, args.seq_len)
+
+    save(samples, args.dataset_name, args.seq_len)
 
 
 def train(train_data,
@@ -100,12 +85,16 @@ def train(train_data,
     return diffusion
 
 
-def generate(train_data, len):
-    model = train(train_data)
+def generate(model, len):
 
     samples = model.sample(len).cpu().numpy().transpose(0, 2, 1)
 
     return samples
+
+
+def save(samples, dataset_name, seq_len, directory='saved_files'):
+    os.makedirs(here(directory), exist_ok=True)
+    np.save(here(f'{directory}/synth-{dataset_name}-{seq_len}.npy'), samples)
 
 
 if __name__ == "__main__":
