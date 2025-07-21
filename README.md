@@ -2,15 +2,6 @@
 
 This repo contains the code for TransFusion paper (https://doi.org/10.1016/j.mlwa.2025.100652).
 
-First, install the docker container by running the shell `build.sh`, after that run the environment by using `run-shell.sh` shell.
-
-```terminal
-chmod +x build.sh
-./build.sh
-chmod +x run-shell.sh
-./run-shell.sh
-```
-
 ## Training
 
 To train TransFusion, run the following command inside the docker container.
@@ -21,7 +12,7 @@ To download the dataset (stock, air and energy), please refer to the supplementa
 
 
 ```terminal
-python3 train.py --dataset_name sine --seq_len 100 --batch_size 256
+just train --dataset_name sine --seq_len 100 --batch_size 256
 ```
 
 ### Generated samples from the runtime can be found in the `saved_files` directory after running the experiments.
