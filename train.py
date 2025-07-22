@@ -35,7 +35,7 @@ def main(args):
 
 def train(train_data,
           beta_schedule='cosine',
-          objective='pred=x0', 
+          objective='pred_x0', 
           epochs=5000, 
           timesteps=1000, 
           batch_size=256, 
