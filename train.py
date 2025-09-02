@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 from tqdm import tqdm
 from pyprojroot import here
 import numpy as np
@@ -35,7 +36,7 @@ def main(args):
 
 def train(train_data,
           beta_schedule='cosine',
-          objective='pred_x0', 
+          objective='pred_x0',
           epochs=5000, 
           timesteps=1000, 
           batch_size=256, 
@@ -85,11 +86,18 @@ def train(train_data,
     return diffusion
 
 
-def generate(model, len):
+def generate(model, sample_count):
 
-    samples = model.sample(len).cpu().numpy().transpose(0, 2, 1)
+    batch_size = 100
+    samples = []
 
-    return samples
+    with torch.no_grad():
+        for batch_start_idx in range(0, sample_count, batch_size):
+            this_batch_size = min(batch_size, sample_count - batch_start_idx)
+            new_samples = model.sample(this_batch_size).cpu().numpy().transpose(0, 2, 1)
+            samples.append(new_samples)
+
+    return np.concatenate(samples, axis=0)
 
 
 def save(samples, dataset_name, seq_len, directory='saved_files'):
